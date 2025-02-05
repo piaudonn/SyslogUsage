@@ -12,4 +12,16 @@ CommonSecurityLog
 
 Unfortunately, this approach will fail if the amount of data is too large. Forcing one to break down the query into multiple subquery per bucket of small time periods. This solution addresses this by creating a custom table `SyslogUsage_CL` (the name can be picked at deployment time) which has the same schema as the `Usage` table but with Syslog (and/or CEF) usage statistics.
 
-<img width="496" alt="image" src="https://github.com/user-attachments/assets/8eeeb7c1-acaf-4f21-8fdf-82fe32101329" />
+![image](https://github.com/user-attachments/assets/8cd194de-ec52-4495-bc00-fb584b99695b)
+
+The solution is composed of the following:
+- A custom table to receive the ingestion (usage) statistics
+- A Data Collection Endpoint (DCE) to ingest data into that table
+- A Data Collection Rule (DCR) to receive data using the DCE
+- A Logic App running on a recurrence trigger (set to 1 hour) to query the source table and send the statistics to the custom table through the DCR
+
+To deploy it click here:
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](/deploy/syslogusage.json)
+
+After you deployed it, you need to grant the System Managed Identity of the Logic App permissions to query the data from Log Analytics and to send data to the DCR.
