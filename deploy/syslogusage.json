@@ -1,0 +1,361 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "customTableName": {
+            "defaultValue": "SyslogCEFCustomUsage",
+            "type": "String",
+            "metadata": {
+                "description": "The name of the custom table to be created in the Log Analytics workspace (without _CL)."
+            }
+        },
+        "dataCollectionEndpoint": {
+            "defaultValue": "DCE-CustomUsage",
+            "type": "String",
+            "metadata": {
+                "description": "The name of the data collection endpoint used by the DCR."
+            }
+        },
+        "workspaceName": {
+            "defaultValue": "wks",
+            "type": "String",
+            "metadata": {
+                "description": "The name of the log analytics workspace where the custom table will be created."
+            }
+        },
+        "dataCollectionRule": {
+            "defaultValue": "DCR-CustomUsage",
+            "type": "String",
+            "metadata": {
+                "description": "The name of the data collection rule (DCR)."
+            }
+        },
+        "logicAppName": {
+            "defaultValue": "CustomUsage",
+            "type": "String",
+            "metadata": {
+                "description": "The name of the logic app creating the usage statistics."
+            }
+        }
+    },
+    "variables": {
+        "workspaceResourceId":"[concat('/subscriptions/', subscription().subscriptionId, '/resourcegroups/', resourceGroup().name, '/providers/Microsoft.OperationalInsights/workspaces/',parameters('workspaceName'))]",
+        "webConnectionName":"SyslogCEFCustomUsage-Connection"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/tables",
+            "apiVersion": "2023-09-01",
+            "name": "[concat(parameters('workspaceName'), '/', parameters('customTableName') ,'_CL')]",
+            "properties": {
+                "plan": "Analytics",
+                "schema": {
+                    "name": "[concat(parameters('customTableName') ,'_CL')]",
+                    "columns": [
+                        {
+                            "name": "TimeGenerated",
+                            "type": "DateTime"
+                        },
+                        {
+                            "name": "StartTime",
+                            "type": "DateTime"
+                        },
+                        {
+                            "name": "EndTime",
+                            "type": "DateTime"
+                        },
+                        {
+                            "name": "DeviceVendor",
+                            "type": "String"
+                        },
+                        {
+                            "name": "DeviceProduct",
+                            "type": "String"
+                        },
+                        {
+                            "name": "Computer",
+                            "type": "String"
+                        },
+                        {
+                            "name": "CollectorHostName",
+                            "type": "String"
+                        },
+                        {
+                            "name": "Quantity",
+                            "type": "Real"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Insights/dataCollectionEndpoints",
+            "apiVersion": "2023-03-11",
+            "name": "[parameters('dataCollectionEndpoint')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "configurationAccess": {},
+                "logsIngestion": {},
+                "metricsIngestion": {},
+                "networkAcls": {
+                    "publicNetworkAccess": "Enabled"
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/tables',parameters('workspaceName'),concat(parameters('customTableName') ,'_CL'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Insights/dataCollectionRules",
+            "apiVersion": "2023-03-11",
+            "name": "[parameters('dataCollectionRule')]",
+            "location": "[resourceGroup().location]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('dataCollectionEndpoint') )]",
+                "streamDeclarations": {
+                     "[concat('Custom-', parameters('customTableName') ,'_CL')]": {
+                        "columns": [
+                            {
+                                "name": "TimeGenerated",
+                                "type": "datetime"
+                            },
+                            {
+                                "name": "StartTime",
+                                "type": "datetime"
+                            },
+                            {
+                                "name": "EndTime",
+                                "type": "datetime"
+                            },
+                            {
+                                "name": "DeviceVendor",
+                                "type": "string"
+                            },
+                            {
+                                "name": "DeviceProduct",
+                                "type": "string"
+                            },
+                            {
+                                "name": "Computer",
+                                "type": "string"
+                            },
+                            {
+                                "name": "CollectorHostName",
+                                "type": "string"
+                            },
+                            {
+                                "name": "Quantity",
+                                "type": "real"
+                            }
+                        ]
+                    }
+                },
+                "dataSources": {},
+                "destinations": {
+                    "logAnalytics": [
+                        {
+                            "workspaceResourceId": "[variables('workspaceResourceId')]",
+                            "name": "TargetWorkspace"
+                        }
+                    ]
+                },
+                "dataFlows": [
+                    {
+                        "streams": [
+                            "[concat('Custom-', parameters('customTableName') ,'_CL')]"
+                        ],
+                        "destinations": [
+                            "TargetWorkspace"
+                        ]
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('dataCollectionEndpoint') )]"
+            ]
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[variables('webConnectionName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "[variables('webConnectionName')]",
+                "customParameterValues": {},
+                "parameterValueSet": {
+                                "name": "managedIdentityAuth"
+                },
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azuremonitorlogs')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', variables('webConnectionName'))]",
+                "[resourceId('Microsoft.Insights/dataCollectionRules',parameters('dataCollectionRule'))]"
+            ],
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "Data Collection Endpoint URI": {
+                            "defaultValue": "[reference(parameters('dataCollectionEndpoint')).logsIngestion.endpoint]",
+                            "type": "String"
+                        },
+                        "DCR Immutable ID": {
+                            "defaultValue": "[reference(parameters('dataCollectionRule')).immutableId]",
+                            "type": "String"
+                        },
+                        "Stream Name": {
+                            "defaultValue": "[concat('Custom-', parameters('customTableName'), '_CL')]",
+                            "type": "String"
+                        },
+                        "Subcription ID": {
+                            "defaultValue": "[subscription().subscriptionId]",
+                            "type": "String"
+                        },
+                        "Resource Group Name": {
+                            "defaultValue": "[resourceGroup().name]",
+                            "type": "String"
+                        },
+                        "Workspace Name": {
+                            "defaultValue": "[parameters('workspaceName')]",
+                            "type": "String"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Every_hour": {
+                            "recurrence": {
+                                "interval": 1,
+                                "frequency": "Hour"
+                            },
+                            "evaluatedRecurrence": {
+                                "interval": 1,
+                                "frequency": "Hour"
+                            },
+                            "type": "Recurrence"
+                        }
+                    },
+                    "actions": {
+                        "Get_the_starting_time": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azuremonitorlogs']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "query": "[concat('union isfuzzy=true\n    (print LastTime = now() - 1h) ,\n    (', parameters('customTableName'), '_CL\n    | summarize LastTime = max(TimeGenerated))\n | summarize LastTime = max(LastTime)')]",
+                                    "timerangetype": "2",
+                                    "timerange": {
+                                        "relativeTimeRange": "Last 48 hours"
+                                    }
+                                },
+                                "path": "/queryDataV2",
+                                "queries": {
+                                    "subscriptions": "@parameters('Subcription ID')",
+                                    "resourcegroups": "@parameters('Resource Group Name')",
+                                    "resourcetype": "Log Analytics Workspace",
+                                    "resourcename": "@parameters('Workspace Name')"
+                                }
+                            }
+                        },
+                        "Upload_usage": {
+                            "runAfter": {
+                                "Get_the_usage": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "uri": "@{parameters('Data Collection Endpoint URI')}/dataCollectionRules/@{parameters('DCR Immutable ID')}/streams/@{parameters('Stream Name')}?api-version=2023-01-01",
+                                "method": "POST",
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "body": "@body('Get_the_usage')?['value']",
+                                "authentication": {
+                                    "type": "ManagedServiceIdentity",
+                                    "audience": "https://monitor.azure.com"
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "contentTransfer": {
+                                    "transferMode": "Chunked"
+                                }
+                            }
+                        },
+                        "Get_the_usage": {
+                            "runAfter": {
+                                "Get_the_starting_time": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azuremonitorlogs']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "query": "let TimeReference = datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']}) ;\nlet EndTimeReference = now(); \nSyslog\n| where TimeGenerated between (TimeReference .. EndTimeReference)\n| summarize Quantity = sum(_BilledSize / 1024 / 1024) by DeviceVendor, DeviceProduct, Computer, CollectorHostName\n| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference",
+                                    "timerangetype": "2",
+                                    "timerange": {
+                                        "relativeTimeRange": "Last 7 days"
+                                    }
+                                },
+                                "path": "/queryDataV2",
+                                "queries": {
+                                    "subscriptions": "@parameters('Subcription ID')",
+                                    "resourcegroups": "@parameters('Resource Group Name')",
+                                    "resourcetype": "Log Analytics Workspace",
+                                    "resourcename": "@parameters('Workspace Name')"
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azuremonitorlogs": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/eastus/managedApis/azuremonitorlogs')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', variables('webConnectionName'))]",
+                                "connectionName": "[variables('webConnectionName')]",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
