@@ -25,3 +25,33 @@ To deploy it click here:
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.json)
 
 After you deployed it, you need to grant the System Managed Identity of the Logic App permissions to query the data from Log Analytics and to send data to the DCR. You can use this [script](/deploy/permissions.ps1) to configure them.  
+
+## Logic App structure
+
+This is the Logic App the solution deploys:
+
+<img width="133" alt="image" src="https://github.com/user-attachments/assets/712b2f90-1757-4dee-b045-e16ed318b933" />
+
+- **Every hour** is the recurrence trigger that runs every hour since the time of the deployment.
+- **Get the starting time** this steps runs with the system managed identity. It executes the following query:
+```kql
+union isfuzzy=true
+    (print LastTime = now() - 1h) ,
+    (SyslogCustomUsage_CL
+    | summarize LastTime = max(TimeGenerated))
+ | summarize LastTime = max(LastTime)
+```
+Where `SyslogCustomUsage_CL` is the name of the custom table you chose at installation time. If the table exist we look at the last time we ingested statistics for the starting point of this execution. Else, if that's the very first time the Logic App runs, we use `now() - 1h` as a starting point. 
+- **Get the usage** is calculating the ingestion statistic by DeviceVendor, DeviceProduct, Computer and CollectorHostName. The result is expressed in MBytes (like for the Usage table) in the column `Quantity`:
+ ```kql
+let TimeReference = datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']}) ;
+let EndTimeReference = now(); 
+CommonSecurityLog
+| where TimeGenerated between (TimeReference .. EndTimeReference)
+| summarize Quantity = sum(_BilledSize / 1024 / 1024) by DeviceVendor, DeviceProduct, Computer, CollectorHostName
+| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference
+```
+Where `datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']})` is the starting time we determine in the previous step.
+- **Upload usage** this steps is also running with the system managed identity. It ingest the calculated usage statistics into the custom table using the DCR created at installation.
+
+
