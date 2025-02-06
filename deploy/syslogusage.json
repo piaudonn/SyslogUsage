@@ -81,6 +81,14 @@
                             "type": "String"
                         },
                         {
+                            "name": "Table",
+                            "type": "String"
+                        },
+                        {
+                            "name": "EPS",
+                            "type": "Real"
+                        },
+                        {
                             "name": "Quantity",
                             "type": "Real"
                         }
@@ -147,7 +155,15 @@
                                 "type": "string"
                             },
                             {
+                                "name": "Table",
+                                "type": "string"
+                            },
+                            {
                                 "name": "Quantity",
+                                "type": "real"
+                            },
+                            {
+                                "name": "EPS",
                                 "type": "real"
                             }
                         ]
@@ -321,7 +337,7 @@
                                 },
                                 "method": "post",
                                 "body": {
-                                    "query": "let TimeReference = datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']}) ;\nlet EndTimeReference = now(); \nSyslog\n| where TimeGenerated between (TimeReference .. EndTimeReference)\n| summarize Quantity = sum(_BilledSize / 1024 / 1024) by DeviceVendor, DeviceProduct, Computer, CollectorHostName\n| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference",
+                                    "query": "let TimeReference = datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']}) ;\nlet EndTimeReference = now();\n union isfuzzy=true (CommonSecurityLog \n| where TimeGenerated between (TimeReference .. EndTimeReference) \n| summarize Quantity = sum(_BilledSize / 1024 / 1024), EventCount = count() by DeviceVendor, DeviceProduct, Computer, CollectorHostName, Table=Type \n| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference, EPS = toreal(EventCount)/60/60), \n(Syslog \n| where TimeGenerated between (TimeReference .. EndTimeReference) \n| summarize Quantity = sum(_BilledSize / 1024 / 1024), EventCount = count() by Computer, CollectorHostName, Table=Type \n| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference, EPS = toreal(EventCount)/60/60)",
                                     "timerangetype": "2",
                                     "timerange": {
                                         "relativeTimeRange": "Last 7 days"
