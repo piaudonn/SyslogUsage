@@ -46,7 +46,6 @@ Where `SyslogCustomUsage_CL` is the name of the custom table you chose at instal
  ```kql
 let TimeReference = datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']}) ;
 let EndTimeReference = now(); 
-let EndTimeReference = now();
 union isfuzzy=true (CommonSecurityLog
 | where TimeGenerated between (TimeReference .. EndTimeReference)
 | summarize Quantity = sum(_BilledSize / 1024 / 1024), EventCount = count() by DeviceVendor, DeviceProduct, Computer, CollectorHostName, Table=Type
