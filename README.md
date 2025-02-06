@@ -10,7 +10,7 @@ CommonSecurityLog
 | summarize Quantity = sum(_BilledSize / 1024 / 1024) by DeviceVendor, DeviceProduct, Computer, CollectorHostName
 ```
 
-Unfortunately, this approach will fail if the amount of data is too large. Forcing one to break down the query into multiple subquery per bucket of small time periods. This solution addresses this by creating a custom table `SyslogUsage_CL` (the name can be picked at deployment time) which has the same schema as the `Usage` table but with Syslog (and/or CEF) usage statistics. It also calcualte an average EPS for the hour per line.
+Unfortunately, this approach will fail if the amount of data is too large. Forcing one to break down the query into multiple subquery per bucket of small time periods. This solution addresses this by creating a custom table `SyslogUsage_CL` (the name can be picked at deployment time) which has the same schema as the `Usage` table but with Syslog (and/or CEF) usage statistics. It also calcualtes an average EPS for the hour per line.
 
 ![image](https://github.com/user-attachments/assets/8cd194de-ec52-4495-bc00-fb584b99695b)
 
