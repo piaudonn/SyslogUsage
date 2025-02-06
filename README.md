@@ -10,7 +10,7 @@ CommonSecurityLog
 | summarize Quantity = sum(_BilledSize / 1024 / 1024) by DeviceVendor, DeviceProduct, Computer, CollectorHostName
 ```
 
-Unfortunately, this approach will fail if the amount of data is too large. Forcing one to break down the query into multiple subquery per bucket of small time periods. This solution addresses this by creating a custom table `SyslogUsage_CL` (the name can be picked at deployment time) which has the same schema as the `Usage` table but with Syslog (and/or CEF) usage statistics.
+Unfortunately, this approach will fail if the amount of data is too large. Forcing one to break down the query into multiple subquery per bucket of small time periods. This solution addresses this by creating a custom table `SyslogUsage_CL` (the name can be picked at deployment time) which has the same schema as the `Usage` table but with Syslog (and/or CEF) usage statistics. It also calcualte an average EPS for the hour per line.
 
 ![image](https://github.com/user-attachments/assets/8cd194de-ec52-4495-bc00-fb584b99695b)
 
@@ -46,10 +46,15 @@ Where `SyslogCustomUsage_CL` is the name of the custom table you chose at instal
  ```kql
 let TimeReference = datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']}) ;
 let EndTimeReference = now(); 
-CommonSecurityLog
+let EndTimeReference = now();
+union isfuzzy=true (CommonSecurityLog
 | where TimeGenerated between (TimeReference .. EndTimeReference)
-| summarize Quantity = sum(_BilledSize / 1024 / 1024) by DeviceVendor, DeviceProduct, Computer, CollectorHostName
-| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference
+| summarize Quantity = sum(_BilledSize / 1024 / 1024), EventCount = count() by DeviceVendor, DeviceProduct, Computer, CollectorHostName, Table=Type
+| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference, EPS = toreal(EventCount)/60/60),
+(Syslog
+| where TimeGenerated between (TimeReference .. EndTimeReference)
+| summarize Quantity = sum(_BilledSize / 1024 / 1024), EventCount = count() by Computer, CollectorHostName, Table = Type
+| extend TimeGenerated = now(), StartTime = TimeReference, EndTime = EndTimeReference, EPS = toreal(EventCount)/60/60)
 ```
 Where `datetime(@{body('Get_the_starting_time')?['value']?[0]['LastTime']})` is the starting time we determine in the previous step.
 - **Upload usage** this steps is also running with the system managed identity. It ingest the calculated usage statistics into the custom table using the DCR created at installation.
