@@ -16,15 +16,14 @@ Unfortunately, this approach will fail if the amount of data is too large. Forci
 
 The solution is composed of the following:
 - A custom table to receive the ingestion (usage) statistics
-- A Data Collection Endpoint (DCE) to ingest data into that table
-- A Data Collection Rule (DCR) to receive data using the DCE
+- A Data Collection Rule (DCR) of kind `Direct` to receive data using its own ingestion URL 
 - A Logic App running on a recurrence trigger (set to 1 hour) to query the source table and send the statistics to the custom table through the DCR
 
 To deploy it click here:
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.json)   
+You can also use this Bicep file: 💪 [Deploy with Bicep]((https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.bicep)   ) 
 
-After you deployed it, you need to grant the System Managed Identity of the Logic App permissions to query the data from Log Analytics and to send data to the DCR. You can use this [script](/deploy/permissions.ps1) to configure them.  
 
 ## Logic App structure
 
