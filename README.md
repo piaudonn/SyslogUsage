@@ -22,7 +22,7 @@ The solution is composed of the following:
 To deploy it click here:
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.json)   
-You can also use this Bicep file: 💪 [Deploy with Bicep]((https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.bicep)   ) 
+You can also use this Bicep file: 💪 [Deploy with Bicep](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fpiaudonn%2FSyslogUsage%2Frefs%2Fheads%2Fmain%2Fdeploy%2Fsyslogusage.bicep)
 
 
 ## Logic App structure
