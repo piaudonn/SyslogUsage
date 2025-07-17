@@ -13,6 +13,10 @@ param logicAppName string = 'CustomUsage'
 var workspaceResourceId = '/subscriptions/${subscription().subscriptionId}/resourcegroups/${resourceGroup().name}/providers/Microsoft.OperationalInsights/workspaces/${workspaceName}'
 var webConnectionName = 'SyslogCEFCustomUsage-Connection'
 
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: workspaceName
+  scope: resourceGroup()
+}
 resource workspaceName_customTableName_CL 'Microsoft.OperationalInsights/workspaces/tables@2023-09-01' = {
   name: '${workspaceName}/${customTableName}_CL'
   properties: {
@@ -321,6 +325,16 @@ resource dataCollectionRulePublisher 'Microsoft.Authorization/roleAssignments@20
   properties: {
     principalId: logicApp.identity.principalId
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource logAnalyticsReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(dataCollectionRule_resource.id, 'Log Analytics Reader')
+  scope: logAnalyticsWorkspace
+  properties: {
+    principalId: logicApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '73c42c96-874c-492b-b04d-ab87d138a893')
     principalType: 'ServicePrincipal'
   }
 }
